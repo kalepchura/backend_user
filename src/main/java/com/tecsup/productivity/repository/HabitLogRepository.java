@@ -13,28 +13,49 @@ import java.util.Optional;
 @Repository
 public interface HabitLogRepository extends JpaRepository<HabitLog, Long> {
 
+    /**
+     * Obtener logs de un hábito en una fecha específica
+     */
     Optional<HabitLog> findByHabitIdAndFecha(Long habitId, LocalDate fecha);
 
-    List<HabitLog> findByHabitIdAndFechaBetweenOrderByFechaAsc(
-            Long habitId,
-            LocalDate fechaInicio,
-            LocalDate fechaFin
-    );
-
-    @Query("SELECT hl FROM HabitLog hl WHERE hl.habit.id = :habitId " +
-            "AND hl.fecha >= :fechaInicio " +
-            "ORDER BY hl.fecha DESC")
-    List<HabitLog> findRecentLogsByHabit(
-            @Param("habitId") Long habitId,
-            @Param("fechaInicio") LocalDate fechaInicio
-    );
-
+    /**
+     * Obtener todos los logs de un usuario en una fecha
+     */
     @Query("SELECT hl FROM HabitLog hl " +
-            "JOIN hl.habit h " +
-            "WHERE h.user.id = :userId " +
+            "WHERE hl.habit.user.id = :userId " +
             "AND hl.fecha = :fecha")
-    List<HabitLog> findLogsByUserAndDate(
+    List<HabitLog> findByUserAndDate(
             @Param("userId") Long userId,
             @Param("fecha") LocalDate fecha
     );
+
+    /**
+     * Obtener logs de un hábito en un rango de fechas
+     */
+    @Query("SELECT hl FROM HabitLog hl " +
+            "WHERE hl.habit.id = :habitId " +
+            "AND hl.fecha BETWEEN :startDate AND :endDate " +
+            "ORDER BY hl.fecha DESC")
+    List<HabitLog> findByHabitAndDateRange(
+            @Param("habitId") Long habitId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Contar hábitos completados de un usuario en una fecha
+     */
+    @Query("SELECT COUNT(hl) FROM HabitLog hl " +
+            "WHERE hl.habit.user.id = :userId " +
+            "AND hl.fecha = :fecha " +
+            "AND hl.completado = true")
+    long countCompletedByUserAndDate(
+            @Param("userId") Long userId,
+            @Param("fecha") LocalDate fecha
+    );
+
+    /**
+     * Eliminar logs de un hábito
+     */
+    void deleteByHabitId(Long habitId);
 }

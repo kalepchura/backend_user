@@ -1,5 +1,5 @@
 // ============================================
-// TaskService.java - EP-04 (HU-8, CA-11)
+// TaskService.java - Gestión de Tareas
 // ============================================
 package com.tecsup.productivity.service;
 
@@ -8,17 +8,20 @@ import com.tecsup.productivity.dto.request.UpdateTaskRequest;
 import com.tecsup.productivity.dto.response.TaskResponse;
 import com.tecsup.productivity.entity.Task;
 import com.tecsup.productivity.entity.User;
+import com.tecsup.productivity.exception.BadRequestException;
 import com.tecsup.productivity.exception.ResourceNotFoundException;
 import com.tecsup.productivity.exception.UnauthorizedException;
 import com.tecsup.productivity.repository.TaskRepository;
 import com.tecsup.productivity.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TaskService {
@@ -70,9 +73,14 @@ public class TaskService {
                 .prioridad(request.getPrioridad())
                 .fechaLimite(request.getFechaLimite())
                 .completed(false)
+                .source("user") // ✅ Siempre "user" cuando se crea manualmente
+                .sincronizadoTecsup(false)
                 .build();
 
         task = taskRepository.save(task);
+        log.info("[TASK] Tarea creada manualmente: {} por usuario {}",
+                task.getId(), user.getId());
+
         return mapToTaskResponse(task);
     }
 
@@ -81,6 +89,20 @@ public class TaskService {
         Task task = findTaskById(id);
         validateOwnership(task);
 
+        // ✅ Validar que no es tarea sincronizada de TECSUP
+        if ("tecsup".equals(task.getSource())) {
+            // Permitir cambiar SOLO completed y prioridad (campos locales)
+            if (request.getCompleted() != null) {
+                task.setCompleted(request.getCompleted());
+            }
+            if (request.getPrioridad() != null) {
+                task.setPrioridad(request.getPrioridad());
+            }
+            task = taskRepository.save(task);
+            return mapToTaskResponse(task);
+        }
+
+        // Para tareas "user", permitir editar todo
         if (request.getTitulo() != null && !request.getTitulo().isBlank()) {
             task.setTitulo(request.getTitulo().trim());
         }
@@ -110,8 +132,12 @@ public class TaskService {
         Task task = findTaskById(id);
         validateOwnership(task);
 
+        // ✅ Permitir toggle incluso en tareas TECSUP
         task.setCompleted(!task.getCompleted());
         task = taskRepository.save(task);
+
+        log.info("[TASK] Tarea {} marcada como {}",
+                id, task.getCompleted() ? "completada" : "pendiente");
 
         return mapToTaskResponse(task);
     }
@@ -120,7 +146,18 @@ public class TaskService {
     public void deleteTask(Long id) {
         Task task = findTaskById(id);
         validateOwnership(task);
+
+        // ✅ Validar que no es tarea sincronizada de TECSUP
+        if ("tecsup".equals(task.getSource())) {
+            throw new BadRequestException(
+                    "No puedes eliminar tareas sincronizadas desde TECSUP. " +
+                            "Desactiva la sincronización o elimina en Canvas."
+            );
+        }
+
         taskRepository.delete(task);
+        log.info("[TASK] Tarea eliminada: {} por usuario {}",
+                id, securityUtil.getCurrentUserId());
     }
 
     private Task findTaskById(Long id) {
@@ -144,7 +181,11 @@ public class TaskService {
                 .prioridad(task.getPrioridad())
                 .fechaLimite(task.getFechaLimite())
                 .completed(task.getCompleted())
+                .source(task.getSource()) // ✅ NUEVO
+                .tecsupExternalId(task.getTecsupExternalId()) // ✅ NUEVO
+                .sincronizadoTecsup(task.getSincronizadoTecsup())
                 .createdAt(task.getCreatedAt())
+                .updatedAt(task.getUpdatedAt()) // ✅ NUEVO
                 .build();
     }
 }

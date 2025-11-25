@@ -1,5 +1,5 @@
 // ============================================
-// CreateEventRequest.java - HU-6, CA-09
+// CreateEventRequest.java - CON CAMPO CURSO
 // ============================================
 package com.tecsup.productivity.dto.request;
 
@@ -32,4 +32,8 @@ public class CreateEventRequest {
     private Event.EventCategory categoria;
 
     private String descripcion;
+
+    // ✅ Campo curso OPCIONAL (para usuarios que quieran especificarlo manualmente)
+    @Size(max = 200, message = "Máximo 200 caracteres")
+    private String curso;
 }

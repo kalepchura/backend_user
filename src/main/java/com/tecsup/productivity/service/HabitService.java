@@ -1,5 +1,5 @@
 // ============================================
-// HabitService.java - EP-04 (HU-9, CA-12)
+// HabitService.java - VERSIÓN CORREGIDA
 // ============================================
 package com.tecsup.productivity.service;
 
@@ -12,12 +12,14 @@ import com.tecsup.productivity.dto.response.HabitResponse;
 import com.tecsup.productivity.entity.Habit;
 import com.tecsup.productivity.entity.HabitLog;
 import com.tecsup.productivity.entity.User;
+import com.tecsup.productivity.exception.BadRequestException;
 import com.tecsup.productivity.exception.ResourceNotFoundException;
 import com.tecsup.productivity.exception.UnauthorizedException;
 import com.tecsup.productivity.repository.HabitLogRepository;
 import com.tecsup.productivity.repository.HabitRepository;
 import com.tecsup.productivity.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class HabitService {
@@ -36,7 +39,9 @@ public class HabitService {
     @Transactional(readOnly = true)
     public List<HabitResponse> getHabits() {
         User user = securityUtil.getCurrentUser();
-        List<Habit> habits = habitRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
+
+        // ✅ Solo devolver hábitos activos por defecto
+        List<Habit> habits = habitRepository.findByUserIdAndActivoTrueOrderByCreatedAtDesc(user.getId());
 
         return habits.stream()
                 .map(this::mapToHabitResponse)
@@ -54,14 +59,27 @@ public class HabitService {
     public HabitResponse createHabit(CreateHabitRequest request) {
         User user = securityUtil.getCurrentUser();
 
+        // ✅ Determinar si es comida
+        boolean esComida = request.getTipo() == Habit.HabitType.DESAYUNO ||
+                request.getTipo() == Habit.HabitType.ALMUERZO ||
+                request.getTipo() == Habit.HabitType.CENA;
+
+        // ✅ Para comidas, metaDiaria puede ser NULL
+        Integer metaDiaria = esComida ? null : request.getMetaDiaria();
+
         Habit habit = Habit.builder()
                 .user(user)
                 .nombre(request.getNombre().trim())
                 .tipo(request.getTipo())
-                .metaDiaria(request.getMetaDiaria())
+                .metaDiaria(metaDiaria)
+                .esComida(esComida)
+                .activo(true)
                 .build();
 
         habit = habitRepository.save(habit);
+        log.info("[HABIT] Hábito creado: {} (tipo: {}) por usuario {}",
+                habit.getId(), habit.getTipo(), user.getId());
+
         return mapToHabitResponse(habit);
     }
 
@@ -76,10 +94,21 @@ public class HabitService {
 
         if (request.getTipo() != null) {
             habit.setTipo(request.getTipo());
+
+            // ✅ Actualizar esComida si cambia el tipo
+            boolean esComida = request.getTipo() == Habit.HabitType.DESAYUNO ||
+                    request.getTipo() == Habit.HabitType.ALMUERZO ||
+                    request.getTipo() == Habit.HabitType.CENA;
+            habit.setEsComida(esComida);
         }
 
         if (request.getMetaDiaria() != null) {
             habit.setMetaDiaria(request.getMetaDiaria());
+        }
+
+        // ✅ Permitir activar/desactivar
+        if (request.getActivo() != null) {
+            habit.setActivo(request.getActivo());
         }
 
         habit = habitRepository.save(habit);
@@ -90,31 +119,45 @@ public class HabitService {
     public void deleteHabit(Long id) {
         Habit habit = findHabitById(id);
         validateOwnership(habit);
-        habitRepository.delete(habit);
+
+        // ✅ En lugar de eliminar, desactivar
+        habit.setActivo(false);
+        habitRepository.save(habit);
+
+        log.info("[HABIT] Hábito desactivado: {} por usuario {}",
+                id, securityUtil.getCurrentUserId());
     }
 
-    // Registrar progreso diario
     @Transactional
     public HabitLogResponse logHabit(LogHabitRequest request) {
         Habit habit = findHabitById(request.getHabitId());
         validateOwnership(habit);
 
+        // ✅ Solo permitir registrar el día actual
+        if (!request.getFecha().equals(LocalDate.now())) {
+            throw new BadRequestException("Solo puedes registrar hábitos del día actual");
+        }
+
         // Buscar o crear log del día
-        HabitLog log = habitLogRepository
+        HabitLog habitLog = habitLogRepository
                 .findByHabitIdAndFecha(request.getHabitId(), request.getFecha())
                 .orElse(HabitLog.builder()
                         .habit(habit)
                         .fecha(request.getFecha())
                         .build());
 
-        log.setCompletado(request.getCompletado());
-        log.setValor(request.getValor());
+        habitLog.setCompletado(request.getCompletado());
+        habitLog.setValor(request.getValor());
 
-        log = habitLogRepository.save(log);
-        return mapToHabitLogResponse(log);
+        habitLog = habitLogRepository.save(habitLog);
+
+        // ✅ CORREGIDO: log.info en lugar de log
+        log.info("[HABIT] Log registrado: hábito {} en fecha {} por usuario {}",
+                habit.getId(), request.getFecha(), securityUtil.getCurrentUserId());
+
+        return mapToHabitLogResponse(habitLog);
     }
 
-    // Obtener progreso semanal (CA-12)
     @Transactional(readOnly = true)
     public HabitProgressResponse getHabitProgress(Long id, Integer days) {
         Habit habit = findHabitById(id);
@@ -123,7 +166,7 @@ public class HabitService {
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(days - 1);
 
-        List<HabitLog> logs = habitLogRepository.findByHabitIdAndFechaBetweenOrderByFechaAsc(
+        List<HabitLog> logs = habitLogRepository.findByHabitAndDateRange(
                 id, startDate, endDate);
 
         List<HabitLogResponse> logResponses = logs.stream()
@@ -155,18 +198,20 @@ public class HabitService {
                 .nombre(habit.getNombre())
                 .tipo(habit.getTipo())
                 .metaDiaria(habit.getMetaDiaria())
+                .esComida(habit.getEsComida())
+                .activo(habit.getActivo())
                 .createdAt(habit.getCreatedAt())
                 .build();
     }
 
-    private HabitLogResponse mapToHabitLogResponse(HabitLog log) {
+    private HabitLogResponse mapToHabitLogResponse(HabitLog habitLog) {
         return HabitLogResponse.builder()
-                .id(log.getId())
-                .habitId(log.getHabit().getId())
-                .fecha(log.getFecha())
-                .completado(log.getCompletado())
-                .valor(log.getValor())
-                .createdAt(log.getCreatedAt())
+                .id(habitLog.getId())
+                .habitId(habitLog.getHabit().getId())
+                .fecha(habitLog.getFecha())
+                .completado(habitLog.getCompletado())
+                .valor(habitLog.getValor())
+                .createdAt(habitLog.getCreatedAt())
                 .build();
     }
 }

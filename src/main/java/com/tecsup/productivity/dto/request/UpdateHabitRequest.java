@@ -1,5 +1,5 @@
 // ============================================
-// UpdateHabitRequest.java - HU-9, CA-12
+// UpdateHabitRequest.java - CORREGIDO
 // ============================================
 package com.tecsup.productivity.dto.request;
 
@@ -14,7 +14,13 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class UpdateHabitRequest {
+
     private String nombre;
+
     private Habit.HabitType tipo;
+
     private Integer metaDiaria;
+
+    // ✅ NUEVO - Permitir activar/desactivar hábitos
+    private Boolean activo;
 }

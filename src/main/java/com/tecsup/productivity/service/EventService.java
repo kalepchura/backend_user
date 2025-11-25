@@ -1,5 +1,5 @@
 // ============================================
-// EventService.java - EP-03 (HU-6, CA-09)
+// EventService.java - VERSIÓN FINAL CON CAMPO CURSO
 // ============================================
 package com.tecsup.productivity.service;
 
@@ -8,11 +8,13 @@ import com.tecsup.productivity.dto.request.UpdateEventRequest;
 import com.tecsup.productivity.dto.response.EventResponse;
 import com.tecsup.productivity.entity.Event;
 import com.tecsup.productivity.entity.User;
+import com.tecsup.productivity.exception.BadRequestException;
 import com.tecsup.productivity.exception.ResourceNotFoundException;
 import com.tecsup.productivity.exception.UnauthorizedException;
 import com.tecsup.productivity.repository.EventRepository;
 import com.tecsup.productivity.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +22,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EventService {
@@ -61,6 +64,7 @@ public class EventService {
     public EventResponse createEvent(CreateEventRequest request) {
         User user = securityUtil.getCurrentUser();
 
+        // ✅ Construir evento con curso OPCIONAL
         Event event = Event.builder()
                 .user(user)
                 .titulo(request.getTitulo().trim())
@@ -68,10 +72,17 @@ public class EventService {
                 .hora(request.getHora())
                 .categoria(request.getCategoria())
                 .descripcion(request.getDescripcion())
+                .curso(request.getCurso() != null && !request.getCurso().isBlank()
+                        ? request.getCurso().trim()
+                        : null) // ✅ NULL si no se envía
+                .source("user")
                 .sincronizadoTecsup(false)
                 .build();
 
         event = eventRepository.save(event);
+        log.info("[EVENT] Evento creado manualmente: {} por usuario {}",
+                event.getId(), user.getId());
+
         return mapToEventResponse(event);
     }
 
@@ -79,6 +90,14 @@ public class EventService {
     public EventResponse updateEvent(Long id, UpdateEventRequest request) {
         Event event = findEventById(id);
         validateOwnership(event);
+
+        // ✅ Validar que no es evento sincronizado de TECSUP
+        if ("tecsup".equals(event.getSource())) {
+            throw new BadRequestException(
+                    "No puedes editar eventos sincronizados desde TECSUP. " +
+                            "Desactiva la sincronización o edita en Canvas."
+            );
+        }
 
         if (request.getTitulo() != null && !request.getTitulo().isBlank()) {
             event.setTitulo(request.getTitulo().trim());
@@ -100,6 +119,13 @@ public class EventService {
             event.setDescripcion(request.getDescripcion().trim());
         }
 
+        // ✅ Actualizar curso si viene en el request
+        if (request.getCurso() != null) {
+            event.setCurso(request.getCurso().isBlank()
+                    ? null
+                    : request.getCurso().trim());
+        }
+
         event = eventRepository.save(event);
         return mapToEventResponse(event);
     }
@@ -108,7 +134,18 @@ public class EventService {
     public void deleteEvent(Long id) {
         Event event = findEventById(id);
         validateOwnership(event);
+
+        // ✅ Validar que no es evento sincronizado de TECSUP
+        if ("tecsup".equals(event.getSource())) {
+            throw new BadRequestException(
+                    "No puedes eliminar eventos sincronizados desde TECSUP. " +
+                            "Desactiva la sincronización o elimina en Canvas."
+            );
+        }
+
         eventRepository.delete(event);
+        log.info("[EVENT] Evento eliminado: {} por usuario {}",
+                id, securityUtil.getCurrentUserId());
     }
 
     private Event findEventById(Long id) {
@@ -132,9 +169,12 @@ public class EventService {
                 .hora(event.getHora())
                 .categoria(event.getCategoria())
                 .descripcion(event.getDescripcion())
-                .curso(event.getCurso())
+                .curso(event.getCurso()) // ✅ Puede ser NULL
+                .source(event.getSource())
+                .tecsupExternalId(event.getTecsupExternalId())
                 .sincronizadoTecsup(event.getSincronizadoTecsup())
                 .createdAt(event.getCreatedAt())
+                .updatedAt(event.getUpdatedAt())
                 .build();
     }
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -12,7 +13,8 @@ import java.time.LocalTime;
 @Entity
 @Table(name = "events", indexes = {
         @Index(name = "idx_user_fecha", columnList = "user_id, fecha"),
-        @Index(name = "idx_user_categoria", columnList = "user_id, categoria")
+        @Index(name = "idx_user_categoria", columnList = "user_id, categoria"),
+        @Index(name = "idx_event_user_source", columnList = "user_id, source") // ✅ Único
 })
 @Getter
 @Setter
@@ -30,7 +32,7 @@ public class Event {
     @JsonIgnore
     private User user;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 250)
     private String titulo;
 
     @Column(nullable = false)
@@ -45,8 +47,19 @@ public class Event {
     @Column(columnDefinition = "TEXT")
     private String descripcion;
 
-    @Column(length = 100)
+    @Column(length = 200)
     private String curso;
+
+    // ============================================
+    // ✅ CAMPOS NUEVOS - Hibernate los creará automáticamente
+    // ============================================
+
+    @Column(length = 20)
+    @Builder.Default
+    private String source = "user"; // "user" o "tecsup"
+
+    @Column(name = "tecsup_external_id", length = 100)
+    private String tecsupExternalId; // ID remoto de Canvas
 
     @Column(name = "sincronizado_tecsup")
     @Builder.Default
@@ -55,6 +68,10 @@ public class Event {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt; // ✅ NUEVO
 
     public enum EventCategory {
         CLASE, EXAMEN, PERSONAL

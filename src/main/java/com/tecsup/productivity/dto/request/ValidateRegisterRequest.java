@@ -1,5 +1,5 @@
 // ============================================
-// RegisterRequest.java - Con Token Obligatorio para Estudiantes
+// 1. ValidateRegisterRequest.java (DTO para Paso 1)
 // ============================================
 package com.tecsup.productivity.dto.request;
 
@@ -10,13 +10,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Map;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class RegisterRequest {
+public class ValidateRegisterRequest {
 
     @NotBlank(message = "El email es requerido")
     @Email(message = "Email inválido")
@@ -37,15 +35,7 @@ public class RegisterRequest {
     private Boolean acceptTerms;
 
     /**
-     * Token de Canvas/TECSUP
-     * - OBLIGATORIO si tipo = STUDENT
-     * - No requerido si tipo = GENERAL
+     * Token TECSUP (obligatorio solo si tipo = STUDENT)
      */
     private String tecsupToken;
-
-    /**
-     * Preferencias personalizadas (opcional)
-     * Si no se envían, se usan las por defecto
-     */
-    private Map<String, Object> preferences;
 }

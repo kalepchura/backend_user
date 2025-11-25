@@ -24,22 +24,45 @@ spring:
     default-property-inclusion: non_null
 
 server:
-  port: 8081
+  address: 0.0.0.0   # <- permite conexiones externas en la LAN
+  port: 8082
   error:
     include-message: always
     include-stacktrace: on_param
 
+
 jwt:
   secret: tecsup_productivity_secret_key_2025_debe_ser_al_menos_256_bits_seguro
-  expiration: 86400000
+  expiration: 604800000
 
 tecsup:
   api:
-    url: https://api.tecsup.edu.pe
+    url: https://tecsup.instructure.com/api/v1
     timeout: 30000
+
+# ================================
+# CONFIGURACIÓN DE GEMINI (GRATIS)
+# ================================
+google:
+  gemini:
+    api:
+      key: AIzaSyAiBJgVMJf2BhAPhYHzbBVek4QGSD0Ybc0
+      # Usando el modelo más reciente disponible en v1
+      url: https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent
+      model: gemini-2.5-flash
+      max-tokens: 1000
+      temperature: 0.7
+
+chatbot:
+  context:
+    max-tasks: 10
+    max-events: 5
+  session:
+    timeout: 3600
 
 logging:
   level:
     root: INFO
     com.tecsup.productivity: DEBUG
     org.springframework.security: DEBUG
+    org.springframework.web.reactive: DEBUG

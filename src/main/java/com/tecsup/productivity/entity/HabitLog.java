@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "habit_logs",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"habit_id", "fecha"}),
+        uniqueConstraints = @UniqueConstraint(columnNames = {"habit_id", "fecha"}), // ✅ PERFECTO
         indexes = @Index(name = "idx_habit_fecha", columnList = "habit_id, fecha")
 )
 @Getter
@@ -35,7 +35,7 @@ public class HabitLog {
     @Builder.Default
     private Boolean completado = false;
 
-    private Integer valor;
+    private Integer valor; // Para hábitos numéricos (ej: 8 vasos de agua)
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
