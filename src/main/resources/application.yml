@@ -24,12 +24,11 @@ spring:
     default-property-inclusion: non_null
 
 server:
-  address: 0.0.0.0   # <- permite conexiones externas en la LAN
+  address: 0.0.0.0
   port: 8082
   error:
     include-message: always
     include-stacktrace: on_param
-
 
 jwt:
   secret: tecsup_productivity_secret_key_2025_debe_ser_al_menos_256_bits_seguro
@@ -41,13 +40,15 @@ tecsup:
     timeout: 30000
 
 # ================================
-# CONFIGURACIÓN DE GEMINI (GRATIS)
+# CONFIGURACIÓN DE GEMINI (MEJORADA)
 # ================================
 google:
   gemini:
     api:
-      key: AIzaSyAiBJgVMJf2BhAPhYHzbBVek4QGSD0Ybc0
-      # Usando el modelo más reciente disponible en v1
+      # ⚠️ IMPORTANTE: Mueve esto a variables de entorno en producción
+      # Usa: export GEMINI_API_KEY=tu_key_aqui
+      # Y reemplaza por: key: ${GEMINI_API_KEY}
+      key: AIzaSyBy_JVv1mgfqgT9YLCwj-oUijKxpoQ7LFU
       url: https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent
       model: gemini-2.5-flash
       max-tokens: 1000
@@ -60,9 +61,44 @@ chatbot:
   session:
     timeout: 3600
 
+# ================================
+# LOGGING MEJORADO
+# ================================
 logging:
   level:
     root: INFO
     com.tecsup.productivity: DEBUG
-    org.springframework.security: DEBUG
-    org.springframework.web.reactive: DEBUG
+    org.springframework.security: INFO
+    org.springframework.web.reactive: INFO
+    # Debug para diagnóstico de red (desactivar en producción)
+    reactor.netty.http.client: DEBUG
+    io.netty.resolver.dns: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+    # ================================
+    # CONFIGURACIÓN DE PROXY (OPCIONAL)
+    # Descomenta si TECSUP tiene proxy corporativo
+    # ================================
+    #spring:
+    #  reactor:
+    #    netty:
+    #      http:
+    #        client:
+    #          proxy:
+    #            type: HTTP
+    #            host: proxy.tecsup.edu.pe
+    #            port: 8080
+    #            # Si requiere autenticación:
+    #            username: tu_usuario
+    #            password: tu_password
+
+
+
+
+
+
+
+
+

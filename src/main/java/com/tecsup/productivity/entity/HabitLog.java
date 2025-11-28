@@ -40,4 +40,14 @@ public class HabitLog {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    private String titulo;
+    private String descripcion;
+    private Boolean esComida;
+
+    public void info(String titulo, String descripcion, Boolean esComida) {
+        this.titulo = titulo;
+        this.descripcion = descripcion;
+        this.esComida = esComida;
+    }
 }

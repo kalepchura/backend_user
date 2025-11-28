@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Table(name = "tasks", indexes = {
         @Index(name = "idx_user_completed", columnList = "user_id, completed"),
         @Index(name = "idx_user_prioridad", columnList = "user_id, prioridad"),
-        @Index(name = "idx_task_user_source", columnList = "user_id, source") // ✅ RENOMBRADO
+        @Index(name = "idx_task_user_source", columnList = "user_id, source")
 })
 @Getter
 @Setter

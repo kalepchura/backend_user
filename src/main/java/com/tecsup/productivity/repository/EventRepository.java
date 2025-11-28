@@ -16,8 +16,6 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     // ✅ Métodos existentes
     List<Event> findByUserIdOrderByFechaAscHoraAsc(Long userId);
 
-    List<Event> findByUserIdAndFechaOrderByHoraAsc(Long userId, LocalDate fecha);
-
     // ============================================
     // ✅ MÉTODOS DE SINCRONIZACIÓN
     // ============================================
@@ -35,12 +33,7 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     /**
      * ✅ NUEVO - Eliminar por source (user o tecsup)
      */
-    @Modifying
-    @Query("DELETE FROM Event e WHERE e.user.id = :userId AND e.source = :source")
-    void deleteByUserIdAndSource(
-            @Param("userId") Long userId,
-            @Param("source") String source
-    );
+
 
     /**
      * ✅ NUEVO - Obtener eventos por source
@@ -65,5 +58,88 @@ public interface EventRepository extends JpaRepository<Event, Long> {
             @Param("userId") Long userId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
+    );
+
+    List<Event> findByUserId(Long userId);
+
+    void deleteByUserIdAndSource(Long userId, String source);
+
+    // ============================================
+    // CONSULTAS POR FECHA
+    // ============================================
+
+    /**
+     * Eventos de un día específico
+     */
+    @Query("SELECT e FROM Event e WHERE e.user.id = :userId " +
+            "AND e.fecha = :date " +
+            "ORDER BY e.hora ASC")
+    List<Event> findByUserIdAndFecha(
+            @Param("userId") Long userId,
+            @Param("date") LocalDate date
+    );
+
+    /**
+     * Eventos en un rango de fechas
+     */
+    @Query("SELECT e FROM Event e WHERE e.user.id = :userId " +
+            "AND e.fecha BETWEEN :startDate AND :endDate " +
+            "ORDER BY e.fecha ASC, e.hora ASC")
+    List<Event> findByUserIdAndFechaBetween(
+            @Param("userId") Long userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
+
+    // ============================================
+    // CONSULTAS POR CATEGORÍA
+    // ============================================
+
+    /**
+     * Eventos por categoría en un rango de fechas
+     */
+    @Query("SELECT e FROM Event e WHERE e.user.id = :userId " +
+            "AND e.categoria = :categoria " +
+            "AND e.fecha BETWEEN :startDate AND :endDate " +
+            "ORDER BY e.fecha ASC, e.hora ASC")
+    List<Event> findByUserIdAndCategoriaAndFechaBetween(
+            @Param("userId") Long userId,
+            @Param("categoria") Event.EventCategory categoria,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
+
+    // ============================================
+    // CONTADORES
+    // ============================================
+
+    /**
+     * Contar eventos de un día
+     */
+    long countByUserIdAndFecha(Long userId, LocalDate date);
+
+    /**
+     * Verificar si hay eventos en un día
+     */
+    boolean existsByUserIdAndFecha(Long userId, LocalDate date);
+
+    /**
+     * Contar eventos por categoría en un día
+     */
+    long countByUserIdAndFechaAndCategoria(
+            Long userId,
+            LocalDate date,
+            Event.EventCategory categoria
+    );
+
+    /**
+     * Encontrar eventos de un usuario en una fecha ordenados por hora
+     */
+    @Query("SELECT e FROM Event e WHERE e.user.id = :userId " +
+            "AND e.fecha = :fecha " +
+            "ORDER BY e.hora ASC")
+    List<Event> findByUserIdAndFechaOrderByHoraAsc(
+            @Param("userId") Long userId,
+            @Param("fecha") LocalDate fecha
     );
 }

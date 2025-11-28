@@ -1,20 +1,16 @@
-// ============================================
-// HabitService.java - VERSIÓN CORREGIDA
-// ============================================
 package com.tecsup.productivity.service;
 
 import com.tecsup.productivity.dto.request.CreateHabitRequest;
 import com.tecsup.productivity.dto.request.LogHabitRequest;
 import com.tecsup.productivity.dto.request.UpdateHabitRequest;
-import com.tecsup.productivity.dto.response.HabitLogResponse;
 import com.tecsup.productivity.dto.response.HabitProgressResponse;
 import com.tecsup.productivity.dto.response.HabitResponse;
+import com.tecsup.productivity.dto.response.HabitWithProgressResponse;
 import com.tecsup.productivity.entity.Habit;
 import com.tecsup.productivity.entity.HabitLog;
 import com.tecsup.productivity.entity.User;
 import com.tecsup.productivity.exception.BadRequestException;
 import com.tecsup.productivity.exception.ResourceNotFoundException;
-import com.tecsup.productivity.exception.UnauthorizedException;
 import com.tecsup.productivity.repository.HabitLogRepository;
 import com.tecsup.productivity.repository.HabitRepository;
 import com.tecsup.productivity.util.SecurityUtil;
@@ -36,182 +32,336 @@ public class HabitService {
     private final HabitLogRepository habitLogRepository;
     private final SecurityUtil securityUtil;
 
-    @Transactional(readOnly = true)
-    public List<HabitResponse> getHabits() {
-        User user = securityUtil.getCurrentUser();
+    // ============================================
+    // PANTALLA BIENESTAR - OBTENER HÁBITOS DEL DÍA
+    // ============================================
 
-        // ✅ Solo devolver hábitos activos por defecto
-        List<Habit> habits = habitRepository.findByUserIdAndActivoTrueOrderByCreatedAtDesc(user.getId());
+    /**
+     * Obtener hábitos de hoy con su progreso
+     * Para la pantalla de BIENESTAR
+     */
+    @Transactional(readOnly = true)
+    public List<HabitWithProgressResponse> getTodayHabits() {
+        User user = securityUtil.getCurrentUser();
+        LocalDate today = LocalDate.now();
+
+        log.info("📋 Obteniendo hábitos de hoy para: {}", user.getEmail());
+
+        List<Habit> habits = habitRepository.findByUserIdAndActivoTrue(user.getId());
 
         return habits.stream()
-                .map(this::mapToHabitResponse)
+                .map(habit -> {
+                    HabitLog log = habitLogRepository
+                            .findByHabitIdAndFecha(habit.getId(), today)
+                            .orElse(null);
+                    return mapToHabitWithProgress(habit, log);
+                })
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Obtener resumen de ayer
+     * Para comparar en BIENESTAR
+     */
     @Transactional(readOnly = true)
-    public HabitResponse getHabit(Long id) {
-        Habit habit = findHabitById(id);
-        validateOwnership(habit);
-        return mapToHabitResponse(habit);
+    public HabitProgressResponse getYesterdaySummary() {
+        User user = securityUtil.getCurrentUser();
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+
+        log.info("📊 Obteniendo resumen de ayer para: {}", user.getEmail());
+
+        List<Habit> habits = habitRepository.findByUserIdAndActivoTrue(user.getId());
+        List<HabitLog> logs = habitLogRepository.findByUserAndDate(user.getId(), yesterday);
+
+        int total = habits.size();
+        int completed = (int) logs.stream().filter(HabitLog::getCompletado).count();
+        int progress = (total > 0) ? Math.round((completed * 100.0f) / total) : 0;
+
+        return HabitProgressResponse.builder()
+                .fecha(yesterday)
+                .totalHabitos(total)
+                .habitosCompletados(completed)
+                .progreso(progress)
+                .build();
     }
 
+    /**
+     * Obtener histórico de hábitos (últimos N días)
+     * Para gráficas en BIENESTAR
+     */
+    @Transactional(readOnly = true)
+    public List<HabitProgressResponse> getHabitHistory(int days) {
+        User user = securityUtil.getCurrentUser();
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = today.minusDays(days - 1);
+
+        log.info("📈 Obteniendo histórico de {} días para: {}", days, user.getEmail());
+
+        List<Habit> habits = habitRepository.findByUserIdAndActivoTrue(user.getId());
+        int totalHabits = habits.size();
+
+        return startDate.datesUntil(today.plusDays(1))
+                .map(date -> {
+                    List<HabitLog> logs = habitLogRepository.findByUserAndDate(user.getId(), date);
+                    int completed = (int) logs.stream().filter(HabitLog::getCompletado).count();
+                    int progress = (totalHabits > 0) ? Math.round((completed * 100.0f) / totalHabits) : 0;
+
+                    return HabitProgressResponse.builder()
+                            .fecha(date)
+                            .totalHabitos(totalHabits)
+                            .habitosCompletados(completed)
+                            .progreso(progress)
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    // ============================================
+    // CRUD HÁBITOS
+    // ============================================
+
+    /**
+     * Crear hábito personalizado
+     */
     @Transactional
     public HabitResponse createHabit(CreateHabitRequest request) {
         User user = securityUtil.getCurrentUser();
 
-        // ✅ Determinar si es comida
-        boolean esComida = request.getTipo() == Habit.HabitType.DESAYUNO ||
-                request.getTipo() == Habit.HabitType.ALMUERZO ||
-                request.getTipo() == Habit.HabitType.CENA;
+        log.info("➕ Creando hábito: {} para {}", request.getNombre(), user.getEmail());
 
-        // ✅ Para comidas, metaDiaria puede ser NULL
-        Integer metaDiaria = esComida ? null : request.getMetaDiaria();
+        // Validar que no exista un hábito del mismo tipo activo
+        if (habitRepository.existsByUserIdAndTipoAndActivoTrue(user.getId(), request.getTipo())) {
+            throw new BadRequestException("Ya tienes un hábito activo de tipo " + request.getTipo());
+        }
 
         Habit habit = Habit.builder()
                 .user(user)
-                .nombre(request.getNombre().trim())
+                .nombre(request.getNombre())
                 .tipo(request.getTipo())
-                .metaDiaria(metaDiaria)
-                .esComida(esComida)
+                .esComida(request.getEsComida())
+                .metaDiaria(request.getMetaDiaria())
                 .activo(true)
                 .build();
 
         habit = habitRepository.save(habit);
-        log.info("[HABIT] Hábito creado: {} (tipo: {}) por usuario {}",
-                habit.getId(), habit.getTipo(), user.getId());
+        log.info("✅ Hábito creado: {}", habit.getNombre());
 
         return mapToHabitResponse(habit);
     }
 
+    /**
+     * Actualizar hábito
+     */
     @Transactional
-    public HabitResponse updateHabit(Long id, UpdateHabitRequest request) {
-        Habit habit = findHabitById(id);
-        validateOwnership(habit);
+    public HabitResponse updateHabit(Long habitId, UpdateHabitRequest request) {
+        User user = securityUtil.getCurrentUser();
 
-        if (request.getNombre() != null && !request.getNombre().isBlank()) {
-            habit.setNombre(request.getNombre().trim());
+        Habit habit = habitRepository.findById(habitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Hábito no encontrado"));
+
+        if (!habit.getUser().getId().equals(user.getId())) {
+            throw new BadRequestException("No tienes permiso para editar este hábito");
         }
 
-        if (request.getTipo() != null) {
-            habit.setTipo(request.getTipo());
+        log.info("✏️ Actualizando hábito: {} ({})", habit.getNombre(), habitId);
 
-            // ✅ Actualizar esComida si cambia el tipo
-            boolean esComida = request.getTipo() == Habit.HabitType.DESAYUNO ||
-                    request.getTipo() == Habit.HabitType.ALMUERZO ||
-                    request.getTipo() == Habit.HabitType.CENA;
-            habit.setEsComida(esComida);
+        if (request.getNombre() != null) {
+            habit.setNombre(request.getNombre());
         }
-
         if (request.getMetaDiaria() != null) {
             habit.setMetaDiaria(request.getMetaDiaria());
         }
-
-        // ✅ Permitir activar/desactivar
         if (request.getActivo() != null) {
             habit.setActivo(request.getActivo());
         }
 
         habit = habitRepository.save(habit);
+        log.info("✅ Hábito actualizado: {}", habit.getNombre());
+
         return mapToHabitResponse(habit);
     }
 
+    /**
+     * Eliminar hábito
+     */
     @Transactional
-    public void deleteHabit(Long id) {
-        Habit habit = findHabitById(id);
-        validateOwnership(habit);
+    public void deleteHabit(Long habitId) {
+        User user = securityUtil.getCurrentUser();
 
-        // ✅ En lugar de eliminar, desactivar
-        habit.setActivo(false);
-        habitRepository.save(habit);
+        Habit habit = habitRepository.findById(habitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Hábito no encontrado"));
 
-        log.info("[HABIT] Hábito desactivado: {} por usuario {}",
-                id, securityUtil.getCurrentUserId());
+        if (!habit.getUser().getId().equals(user.getId())) {
+            throw new BadRequestException("No tienes permiso para eliminar este hábito");
+        }
+
+        log.info("🗑️ Eliminando hábito: {} ({})", habit.getNombre(), habitId);
+
+        // Eliminar logs asociados
+        habitLogRepository.deleteByHabitId(habitId);
+        habitRepository.delete(habit);
+
+        log.info("✅ Hábito eliminado");
     }
 
+    /**
+     * Desactivar hábito (soft delete)
+     */
     @Transactional
-    public HabitLogResponse logHabit(LogHabitRequest request) {
-        Habit habit = findHabitById(request.getHabitId());
-        validateOwnership(habit);
+    public HabitResponse deactivateHabit(Long habitId) {
+        User user = securityUtil.getCurrentUser();
 
-        // ✅ Solo permitir registrar el día actual
-        if (!request.getFecha().equals(LocalDate.now())) {
-            throw new BadRequestException("Solo puedes registrar hábitos del día actual");
+        Habit habit = habitRepository.findById(habitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Hábito no encontrado"));
+
+        if (!habit.getUser().getId().equals(user.getId())) {
+            throw new BadRequestException("No tienes permiso para desactivar este hábito");
         }
+
+        log.info("⏸️ Desactivando hábito: {}", habit.getNombre());
+
+        habit.setActivo(false);
+        habit = habitRepository.save(habit);
+
+        return mapToHabitResponse(habit);
+    }
+
+    // ============================================
+    // REGISTRAR PROGRESO DE HÁBITOS
+    // ============================================
+
+    /**
+     * Registrar progreso de un hábito (comida o numérico)
+     */
+    @Transactional
+    public HabitWithProgressResponse logHabitProgress(Long habitId, LogHabitRequest request) {
+        User user = securityUtil.getCurrentUser();
+        LocalDate fecha = request.getFecha() != null ? request.getFecha() : LocalDate.now();
+
+        Habit habit = habitRepository.findById(habitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Hábito no encontrado"));
+
+        if (!habit.getUser().getId().equals(user.getId())) {
+            throw new BadRequestException("No tienes permiso para registrar este hábito");
+        }
+
+        log.info("📝 Registrando progreso: {} - {} (valor: {})",
+                habit.getNombre(), fecha, request.getValor());
 
         // Buscar o crear log del día
-        HabitLog habitLog = habitLogRepository
-                .findByHabitIdAndFecha(request.getHabitId(), request.getFecha())
+        HabitLog log = habitLogRepository.findByHabitIdAndFecha(habitId, fecha)
                 .orElse(HabitLog.builder()
                         .habit(habit)
-                        .fecha(request.getFecha())
+                        .fecha(fecha)
+                        .completado(false)
+                        .valor(0)
                         .build());
 
-        habitLog.setCompletado(request.getCompletado());
-        habitLog.setValor(request.getValor());
-
-        habitLog = habitLogRepository.save(habitLog);
-
-        // ✅ CORREGIDO: log.info en lugar de log
-        log.info("[HABIT] Log registrado: hábito {} en fecha {} por usuario {}",
-                habit.getId(), request.getFecha(), securityUtil.getCurrentUserId());
-
-        return mapToHabitLogResponse(habitLog);
-    }
-
-    @Transactional(readOnly = true)
-    public HabitProgressResponse getHabitProgress(Long id, Integer days) {
-        Habit habit = findHabitById(id);
-        validateOwnership(habit);
-
-        LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusDays(days - 1);
-
-        List<HabitLog> logs = habitLogRepository.findByHabitAndDateRange(
-                id, startDate, endDate);
-
-        List<HabitLogResponse> logResponses = logs.stream()
-                .map(this::mapToHabitLogResponse)
-                .collect(Collectors.toList());
-
-        return HabitProgressResponse.builder()
-                .habit(mapToHabitResponse(habit))
-                .weeklyLogs(logResponses)
-                .build();
-    }
-
-    private Habit findHabitById(Long id) {
-        return habitRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Hábito no encontrado"));
-    }
-
-    private void validateOwnership(Habit habit) {
-        Long currentUserId = securityUtil.getCurrentUserId();
-        if (!habit.getUser().getId().equals(currentUserId)) {
-            throw new UnauthorizedException("No tienes permiso para acceder a este hábito");
+        // Actualizar valor
+        if (request.getValor() != null) {
+            log.setValor(request.getValor());
         }
+
+        // Determinar si está completado
+        if (habit.getEsComida()) {
+            // Comida: con cualquier registro se marca como completado
+            log.setCompletado(request.getValor() != null && request.getValor() > 0);
+        } else {
+            // Numérico: se completa si alcanza la meta
+            if (habit.getMetaDiaria() != null && log.getValor() != null) {
+                log.setCompletado(log.getValor() >= habit.getMetaDiaria());
+            }
+        }
+
+        log = habitLogRepository.save(log);
+        log.info("✅ Progreso registrado: {} - Completado: {}", habit.getNombre(), log.getCompletado());
+
+        return mapToHabitWithProgress(habit, log);
     }
+
+    /**
+     * Marcar hábito como completado directamente (toggle)
+     */
+    @Transactional
+    public HabitWithProgressResponse toggleHabitCompletion(Long habitId) {
+        User user = securityUtil.getCurrentUser();
+        LocalDate today = LocalDate.now();
+
+        Habit habit = habitRepository.findById(habitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Hábito no encontrado"));
+
+        if (!habit.getUser().getId().equals(user.getId())) {
+            throw new BadRequestException("No tienes permiso para modificar este hábito");
+        }
+
+        // Buscar o crear log
+        HabitLog log = habitLogRepository.findByHabitIdAndFecha(habitId, today)
+                .orElse(HabitLog.builder()
+                        .habit(habit)
+                        .fecha(today)
+                        .completado(false)
+                        .valor(0)
+                        .build());
+
+        // Toggle completado
+        log.setCompletado(!log.getCompletado());
+
+        // Si es numérico y se marca como completado, establecer valor = meta
+        if (log.getCompletado() && !habit.getEsComida() && habit.getMetaDiaria() != null) {
+            log.setValor(habit.getMetaDiaria());
+        }
+
+        log = habitLogRepository.save(log);
+        log.info("✅ Hábito {} - Completado: {}", habit.getNombre(), log.getCompletado());
+
+        return mapToHabitWithProgress(habit, log);
+    }
+
+    // ============================================
+    // MAPPERS
+    // ============================================
 
     private HabitResponse mapToHabitResponse(Habit habit) {
         return HabitResponse.builder()
                 .id(habit.getId())
-                .userId(habit.getUser().getId())
                 .nombre(habit.getNombre())
                 .tipo(habit.getTipo())
-                .metaDiaria(habit.getMetaDiaria())
                 .esComida(habit.getEsComida())
+                .metaDiaria(habit.getMetaDiaria())
                 .activo(habit.getActivo())
                 .createdAt(habit.getCreatedAt())
                 .build();
     }
 
-    private HabitLogResponse mapToHabitLogResponse(HabitLog habitLog) {
-        return HabitLogResponse.builder()
-                .id(habitLog.getId())
-                .habitId(habitLog.getHabit().getId())
-                .fecha(habitLog.getFecha())
-                .completado(habitLog.getCompletado())
-                .valor(habitLog.getValor())
-                .createdAt(habitLog.getCreatedAt())
+    private HabitWithProgressResponse mapToHabitWithProgress(Habit habit, HabitLog log) {
+        Integer valorActual = (log != null && log.getValor() != null) ? log.getValor() : 0;
+        Boolean completado = (log != null) && log.getCompletado();
+
+        Integer progreso = calculateProgress(habit, valorActual, completado);
+
+        return HabitWithProgressResponse.builder()
+                .id(habit.getId())
+                .nombre(habit.getNombre())
+                .tipo(habit.getTipo())
+                .esComida(habit.getEsComida())
+                .metaDiaria(habit.getMetaDiaria())
+                .activo(habit.getActivo())
+                .completado(completado)
+                .valorActual(valorActual)
+                .progreso(progreso)
                 .build();
+    }
+
+    private Integer calculateProgress(Habit habit, Integer valorActual, Boolean completado) {
+        if (habit.getEsComida()) {
+            return completado ? 100 : 0;
+        }
+
+        if (habit.getMetaDiaria() == null || habit.getMetaDiaria() == 0) {
+            return 0;
+        }
+
+        int progress = Math.round((valorActual * 100.0f) / habit.getMetaDiaria());
+        return Math.min(progress, 100);
     }
 }

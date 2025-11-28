@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -15,7 +16,20 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class DashboardResponse {
-    private List<TaskResponse> tareasPendientes;
-    private List<HabitWithProgressResponse> habitosHoy;
-    private List<EventResponse> eventosHoy;
+
+    private LocalDate fecha;
+
+    private List<TaskResponse> tareas;
+    private List<EventResponse> eventos;
+    private List<HabitWithProgressResponse> habitos;
+
+    private List<TaskResponse> tareasVencidas;
+
+    private Integer progresoDelDia;
+
+    private Integer totalTareas;
+    private Integer tareasCompletadas;
+
+    private Integer totalHabitos;
+    private Integer habitosCompletados;
 }

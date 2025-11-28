@@ -26,4 +26,7 @@ public class CreateHabitRequest {
     @NotNull(message = "La meta diaria es requerida")
     @Min(value = 1, message = "La meta debe ser mayor a 0")
     private Integer metaDiaria;
+
+    private Boolean esComida;
+
 }

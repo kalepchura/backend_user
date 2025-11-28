@@ -4,6 +4,7 @@ import com.tecsup.productivity.dto.request.ChatMessageRequest;
 import com.tecsup.productivity.dto.response.ApiResponse;
 import com.tecsup.productivity.dto.response.ChatMessageResponse;
 import com.tecsup.productivity.service.ChatService;
+import com.tecsup.productivity.service.ChatbotContextService;
 import com.tecsup.productivity.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,10 +13,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controlador REST para el Chatbot con IA
- * EP-05: HU-10 (Interacción con chatbot IA), CA-15
  */
 @Slf4j
 @RestController
@@ -24,57 +25,107 @@ import java.util.List;
 public class ChatController {
 
     private final ChatService chatService;
+    private final ChatbotContextService chatbotContextService;
     private final SecurityUtil securityUtil;
 
     /**
-     * Envía un mensaje al chatbot y recibe una respuesta generada por IA
-     *
      * POST /api/chat
-     * Body: { "mensaje": "¿Cuáles son mis tareas pendientes?" }
+     *
+     * Enviar mensaje al chatbot
+     * Body: { "mensaje": "¿Qué tengo hoy?" }
+     *
+     * Para: Chatbot flotante (enviar pregunta)
      */
     @PostMapping
     public ResponseEntity<ApiResponse<ChatMessageResponse>> sendMessage(
             @Valid @RequestBody ChatMessageRequest request
     ) {
-        log.info("POST /api/chat - Enviando mensaje al chatbot");
+        log.info("💬 [POST] /api/chat - Mensaje: {}", request.getMensaje());
+
         ChatMessageResponse response = chatService.sendMessage(request);
-        return ResponseEntity.ok(ApiResponse.success(response));
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Respuesta generada", response)
+        );
     }
 
     /**
-     * Obtiene el historial temporal de la sesión actual
-     * (No persiste en BD, solo en caché durante la sesión)
-     *
      * GET /api/chat/history
+     *
+     * Obtener historial temporal de la sesión
+     * (No persiste en BD, solo en caché)
+     *
+     * Para: Mostrar conversación anterior en el chatbot
      */
     @GetMapping("/history")
     public ResponseEntity<ApiResponse<List<ChatMessageResponse>>> getSessionHistory() {
-        log.info("GET /api/chat/history - Obteniendo historial temporal");
+        log.info("📋 [GET] /api/chat/history");
+
         Long userId = securityUtil.getCurrentUser().getId();
         List<ChatMessageResponse> history = chatService.getSessionHistory(userId);
-        return ResponseEntity.ok(ApiResponse.success(history));
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Historial obtenido", history)
+        );
     }
 
     /**
-     * Limpia el historial temporal del chat
-     *
      * DELETE /api/chat/history
+     *
+     * Limpiar historial temporal
+     *
+     * Para: Botón "Limpiar conversación" en chatbot
      */
     @DeleteMapping("/history")
-    public ResponseEntity<ApiResponse<String>> clearHistory() {
-        log.info("DELETE /api/chat/history - Limpiando historial");
+    public ResponseEntity<ApiResponse<Void>> clearHistory() {
+        log.info("🗑️ [DELETE] /api/chat/history");
+
         Long userId = securityUtil.getCurrentUser().getId();
         chatService.clearHistory(userId);
-        return ResponseEntity.ok(ApiResponse.success("Historial limpiado exitosamente"));
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Historial limpiado exitosamente", null)
+        );
     }
 
     /**
-     * Verifica el estado del chatbot
+     * GET /api/chat/context
      *
+     * Obtener contexto completo del usuario
+     * (Información que el chatbot puede ver)
+     *
+     * Para: Debug o mostrar al usuario qué info tiene el bot
+     */
+    @GetMapping("/context")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getContext() {
+        log.info("🔍 [GET] /api/chat/context");
+
+        Map<String, Object> context = chatbotContextService.getFullContext();
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Contexto del chatbot obtenido", context)
+        );
+    }
+
+    /**
      * GET /api/chat/status
+     *
+     * Verificar estado del chatbot
+     *
+     * Para: Health check del servicio
      */
     @GetMapping("/status")
-    public ResponseEntity<ApiResponse<String>> getStatus() {
-        return ResponseEntity.ok(ApiResponse.success("Chatbot activo y funcionando"));
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getStatus() {
+        log.info("✅ [GET] /api/chat/status");
+
+        Map<String, Object> status = Map.of(
+                "active", true,
+                "service", "Gemini AI",
+                "version", "1.0"
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Chatbot activo", status)
+        );
     }
 }

@@ -20,6 +20,7 @@ public class HabitResponse {
     private Habit.HabitType tipo;
     private Integer metaDiaria;
 
+
     // ✅ NUEVOS campos
     private Boolean esComida;
     private Boolean activo;

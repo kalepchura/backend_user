@@ -16,11 +16,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     // ✅ Métodos existentes
     List<Task> findByUserIdOrderByPrioridadAscCreatedAtDesc(Long userId);
 
-    List<Task> findByUserIdAndCompletedOrderByPrioridadAscCreatedAtDesc(
-            Long userId,
-            Boolean completed
-    );
-
     List<Task> findByUserIdAndPrioridadOrderByCreatedAtDesc(
             Long userId,
             Task.TaskPriority prioridad
@@ -48,12 +43,88 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     /**
      * ✅ Eliminar tareas por source (user o tecsup)
      */
-    @Modifying
-    @Query("DELETE FROM Task t WHERE t.user.id = :userId AND t.source = :source")
-    void deleteByUserIdAndSource(
+    List<Task> findByUserId(Long userId);
+
+    void deleteByUserIdAndSource(Long userId, String source);
+
+    // ============================================
+    // CONSULTAS POR FECHA
+    // ============================================
+
+    /**
+     * Tareas de un día específico
+     */
+    @Query("SELECT t FROM Task t WHERE t.user.id = :userId " +
+            "AND t.fechaLimite = :date " +
+            "ORDER BY t.prioridad DESC, t.fechaLimite ASC")
+    List<Task> findByUserIdAndFechaLimite(
             @Param("userId") Long userId,
-            @Param("source") String source
+            @Param("date") LocalDate date
     );
+
+    /**
+     * Tareas en un rango de fechas
+     */
+    @Query("SELECT t FROM Task t WHERE t.user.id = :userId " +
+            "AND t.fechaLimite BETWEEN :startDate AND :endDate " +
+            "ORDER BY t.fechaLimite ASC, t.prioridad DESC")
+    List<Task> findByUserIdAndFechaLimiteBetween(
+            @Param("userId") Long userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
+
+    // ============================================
+    // TAREAS VENCIDAS Y PRÓXIMAS
+    // ============================================
+
+    /**
+     * Tareas vencidas (no completadas y fecha pasada)
+     */
+    @Query("SELECT t FROM Task t WHERE t.user.id = :userId " +
+            "AND t.fechaLimite < :today " +
+            "AND t.completed = false " +
+            "ORDER BY t.fechaLimite DESC")
+    List<Task> findOverdueTasks(
+            @Param("userId") Long userId,
+            @Param("today") LocalDate today
+    );
+
+    /**
+     * Tareas próximas (siguientes N días)
+     */
+    @Query("SELECT t FROM Task t WHERE t.user.id = :userId " +
+            "AND t.fechaLimite BETWEEN :startDate AND :endDate " +
+            "AND t.completed = false " +
+            "ORDER BY t.fechaLimite ASC, t.prioridad DESC")
+    List<Task> findUpcomingTasks(
+            @Param("userId") Long userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
+
+    // ============================================
+    // CONTADORES
+    // ============================================
+
+    /**
+     * Contar tareas de un día
+     */
+    long countByUserIdAndFechaLimite(Long userId, LocalDate date);
+
+    /**
+     * Contar tareas completadas de un día
+     */
+    long countByUserIdAndCompletedAndFechaLimite(
+            Long userId,
+            Boolean completed,
+            LocalDate date
+    );
+
+    /**
+     * Verificar si hay tareas en un día
+     */
+    boolean existsByUserIdAndFechaLimite(Long userId, LocalDate date);
 
     /**
      * Eliminar tareas sincronizadas (método antiguo - mantener compatibilidad)
@@ -96,5 +167,23 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     long countUrgentTasks(
             @Param("userId") Long userId,
             @Param("deadline") LocalDate deadline
+    );
+
+    long countByUserId(Long userId);
+
+    /**
+     * Contar tareas por estado de completado
+     */
+    long countByUserIdAndCompleted(Long userId, Boolean completed);
+
+    /**
+     * Encontrar tareas no completadas ordenadas por prioridad
+     */
+    @Query("SELECT t FROM Task t WHERE t.user.id = :userId " +
+            "AND t.completed = :completed " +
+            "ORDER BY t.prioridad ASC, t.createdAt DESC")
+    List<Task> findByUserIdAndCompletedOrderByPrioridadAscCreatedAtDesc(
+            @Param("userId") Long userId,
+            @Param("completed") Boolean completed
     );
 }

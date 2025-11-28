@@ -29,6 +29,10 @@ public interface HabitLogRepository extends JpaRepository<HabitLog, Long> {
             @Param("fecha") LocalDate fecha
     );
 
+    @Query("SELECT COUNT(hl) FROM HabitLog hl WHERE hl.habit.user.id = :userId AND hl.fecha = :fecha")
+    long countByUserAndDate(@Param("userId") Long userId, @Param("fecha") LocalDate fecha);
+
+
     /**
      * Obtener logs de un hábito en un rango de fechas
      */

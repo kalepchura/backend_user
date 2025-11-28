@@ -1,18 +1,25 @@
-// ============================================
-// HabitWithProgressResponse.java - HU-4, CA-07
-// ============================================
 package com.tecsup.productivity.dto.response;
 
-import lombok.AllArgsConstructor;
+import com.tecsup.productivity.entity.Habit;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class HabitWithProgressResponse {
-    private HabitResponse habit;
-    private HabitLogResponse progressToday;
+
+    private Long id;
+    private String nombre;
+    private Habit.HabitType tipo;   // ← CAMBIO IMPORTANTE
+    private Boolean esComida;
+    private Integer metaDiaria;
+    private Boolean activo;
+
+    private Boolean completado;
+    private Integer valorActual;
+    private Integer progreso;
 }
