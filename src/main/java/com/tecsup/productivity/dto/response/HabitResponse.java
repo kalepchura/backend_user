@@ -9,21 +9,15 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class HabitResponse {
-
     private Long id;
-    private Long userId;
     private String nombre;
     private Habit.HabitType tipo;
-    private Integer metaDiaria;
-
-
-    // ✅ NUEVOS campos
     private Boolean esComida;
+    private Integer metaDiaria;
     private Boolean activo;
-
     private LocalDateTime createdAt;
 }

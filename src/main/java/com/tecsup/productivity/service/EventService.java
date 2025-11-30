@@ -163,7 +163,6 @@ public class EventService {
     private EventResponse mapToEventResponse(Event event) {
         return EventResponse.builder()
                 .id(event.getId())
-                .userId(event.getUser().getId())
                 .titulo(event.getTitulo())
                 .fecha(event.getFecha())
                 .hora(event.getHora())

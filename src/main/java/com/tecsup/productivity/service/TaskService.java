@@ -175,7 +175,6 @@ public class TaskService {
     private TaskResponse mapToTaskResponse(Task task) {
         return TaskResponse.builder()
                 .id(task.getId())
-                .userId(task.getUser().getId())
                 .titulo(task.getTitulo())
                 .descripcion(task.getDescripcion())
                 .prioridad(task.getPrioridad())

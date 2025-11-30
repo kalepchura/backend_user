@@ -1,6 +1,3 @@
-// ============================================
-// SyncTecsupRequest.java - HU-7, CA-10
-// ============================================
 package com.tecsup.productivity.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
@@ -12,7 +9,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SyncTecsupRequest {
-
     @NotBlank(message = "El token TECSUP es requerido")
     private String token;
 }

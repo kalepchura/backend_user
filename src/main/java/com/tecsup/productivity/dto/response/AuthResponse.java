@@ -1,6 +1,3 @@
-// ============================================
-// AuthResponse.java
-// ============================================
 package com.tecsup.productivity.dto.response;
 
 import lombok.AllArgsConstructor;

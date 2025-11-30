@@ -2,7 +2,6 @@ package com.tecsup.productivity.service;
 
 import com.tecsup.productivity.dto.request.CompleteRegisterRequest;
 import com.tecsup.productivity.dto.request.LoginRequest;
-import com.tecsup.productivity.dto.request.RegisterRequest;
 import com.tecsup.productivity.dto.request.ValidateRegisterRequest;
 import com.tecsup.productivity.dto.response.AuthResponse;
 import com.tecsup.productivity.dto.response.UserResponse;
@@ -174,7 +173,7 @@ public class AuthService {
     // Registro directo (1 paso) - Mantener para compatibilidad
     // ============================================
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public AuthResponse register(ValidateRegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("El email ya está registrado");

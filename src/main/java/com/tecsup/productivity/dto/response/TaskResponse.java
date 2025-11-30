@@ -10,24 +10,19 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class TaskResponse {
-
     private Long id;
-    private Long userId;
     private String titulo;
     private String descripcion;
     private Task.TaskPriority prioridad;
     private LocalDate fechaLimite;
     private Boolean completed;
-
-    // ✅ NUEVOS campos de sincronización
     private String source; // "user" o "tecsup"
     private String tecsupExternalId;
     private Boolean sincronizadoTecsup;
-
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

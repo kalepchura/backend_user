@@ -1,6 +1,3 @@
-// ============================================
-// UserResponse.java
-// ============================================
 package com.tecsup.productivity.dto.response;
 
 import com.tecsup.productivity.entity.User;

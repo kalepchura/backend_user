@@ -1,6 +1,3 @@
-// ============================================
-// ChatMessageResponse.java - HU-10, CA-15
-// ============================================
 package com.tecsup.productivity.dto.response;
 
 import lombok.AllArgsConstructor;

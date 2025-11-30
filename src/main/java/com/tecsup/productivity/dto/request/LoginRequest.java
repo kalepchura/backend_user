@@ -1,9 +1,7 @@
-// ============================================
-// LoginRequest.java - HU-2, CA-02
-// ============================================
 package com.tecsup.productivity.dto.request;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,7 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LoginRequest {
-
     @NotBlank(message = "El email es requerido")
     @Email(message = "Email inválido")
     private String email;

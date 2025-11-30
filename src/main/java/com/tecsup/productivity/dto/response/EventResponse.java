@@ -11,25 +11,20 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class EventResponse {
-
     private Long id;
-    private Long userId;
     private String titulo;
     private LocalDate fecha;
     private LocalTime hora;
     private Event.EventCategory categoria;
     private String descripcion;
     private String curso;
-
-    // ✅ NUEVOS campos de sincronización
     private String source; // "user" o "tecsup"
     private String tecsupExternalId;
     private Boolean sincronizadoTecsup;
-
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt; // ✅ NUEVO
+    private LocalDateTime updatedAt;
 }

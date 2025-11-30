@@ -1,6 +1,3 @@
-// ============================================
-// 1. ValidateRegisterRequest.java (DTO para Paso 1)
-// ============================================
 package com.tecsup.productivity.dto.request;
 
 import com.tecsup.productivity.entity.User;
@@ -10,12 +7,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class ValidateRegisterRequest {
-
     @NotBlank(message = "El email es requerido")
     @Email(message = "Email inválido")
     private String email;
@@ -34,8 +32,6 @@ public class ValidateRegisterRequest {
     @NotNull(message = "Debe aceptar los términos")
     private Boolean acceptTerms;
 
-    /**
-     * Token TECSUP (obligatorio solo si tipo = STUDENT)
-     */
-    private String tecsupToken;
+    private String tecsupToken; // Obligatorio solo si tipo = STUDENT
+    private List<String> preferences;
 }

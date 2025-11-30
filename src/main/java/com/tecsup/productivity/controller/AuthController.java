@@ -5,7 +5,6 @@ package com.tecsup.productivity.controller;
 
 import com.tecsup.productivity.dto.request.CompleteRegisterRequest;
 import com.tecsup.productivity.dto.request.LoginRequest;
-import com.tecsup.productivity.dto.request.RegisterRequest;
 import com.tecsup.productivity.dto.request.ValidateRegisterRequest;
 import com.tecsup.productivity.dto.response.ApiResponse;
 import com.tecsup.productivity.dto.response.AuthResponse;
@@ -45,17 +44,6 @@ public class AuthController {
     ) {
         log.info("✅ Completando registro para: {}", request.getEmail());
         AuthResponse response = authService.completeRegistration(request);
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Usuario registrado exitosamente", response));
-    }
-
-    // Mantener el endpoint original por compatibilidad
-    @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(
-            @Valid @RequestBody RegisterRequest request
-    ) {
-        AuthResponse response = authService.register(request);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Usuario registrado exitosamente", response));

@@ -48,7 +48,7 @@ google:
       # ⚠️ IMPORTANTE: Mueve esto a variables de entorno en producción
       # Usa: export GEMINI_API_KEY=tu_key_aqui
       # Y reemplaza por: key: ${GEMINI_API_KEY}
-      key: AIzaSyBy_JVv1mgfqgT9YLCwj-oUijKxpoQ7LFU
+      key: AIzaSyB3-JVNoHeljZCUIZS1ltKPjheIMwhBsms
       url: https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent
       model: gemini-2.5-flash
       max-tokens: 1000
