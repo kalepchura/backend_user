@@ -4,6 +4,7 @@ import com.tecsup.productivity.entity.DailySummary;
 import com.tecsup.productivity.entity.User;
 import com.tecsup.productivity.repository.DailySummaryRepository;
 import com.tecsup.productivity.repository.HabitLogRepository;
+import com.tecsup.productivity.repository.HabitRepository;
 import com.tecsup.productivity.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ public class DailySummaryService {
     private final DailySummaryRepository summaryRepository;
     private final TaskRepository taskRepository;
     private final HabitLogRepository habitLogRepository;
+    private final HabitRepository habitRepository; // ← AÑADIR ESTA DEPENDENCIA
 
     /**
      * Obtener o crear resumen del día
@@ -46,6 +48,8 @@ public class DailySummaryService {
     /**
      * Calcular resumen del día (sin guardar en BD)
      */
+
+
     @Transactional(readOnly = true)
     public DailySummary calculateDailySummary(User user, LocalDate date) {
 
@@ -55,8 +59,10 @@ public class DailySummaryService {
                 user.getId(), true, date
         );
 
-        // Contar hábitos del día
-        long totalHabits = habitLogRepository.countByUserAndDate(user.getId(), date);
+        // ✅ CORREGIDO: Contar TODOS los hábitos activos
+        long totalHabits = habitRepository.countByUserIdAndActivoTrue(user.getId());
+
+        // ✅ Contar hábitos completados (los que tienen log y están completados)
         long completedHabits = habitLogRepository.countCompletedByUserAndDate(user.getId(), date);
 
         // Construir resumen temporal (no persistido)
@@ -65,13 +71,14 @@ public class DailySummaryService {
                 .date(date)
                 .totalTasks((int) totalTasks)
                 .completedTasks((int) completedTasks)
-                .totalHabits((int) totalHabits)
+                .totalHabits((int) totalHabits)      // ← Ahora será correcto
                 .completedHabits((int) completedHabits)
                 .build();
 
         summary.calculateProgress();
         return summary;
     }
+
 
     /**
      * Guardar snapshot del día (llamar a las 23:59 o al día siguiente)

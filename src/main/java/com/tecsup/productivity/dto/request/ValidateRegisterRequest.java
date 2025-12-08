@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -33,5 +34,6 @@ public class ValidateRegisterRequest {
     private Boolean acceptTerms;
 
     private String tecsupToken; // Obligatorio solo si tipo = STUDENT
-    private List<String> preferences;
+    private Map<String, Object> preferences;
+
 }
